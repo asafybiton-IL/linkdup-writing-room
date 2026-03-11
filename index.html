@@ -125,6 +125,21 @@
   .empty-state .big { font-size:2rem; margin-bottom:0.5rem; }
   .connecting { text-align:center; padding:2rem; color:var(--text-muted); font-size:0.85rem; }
   .connecting span { color:var(--green); }
+
+  /* EMOJI REACTIONS */
+  .msg-reactions { display:flex; flex-wrap:wrap; gap:0.25rem; margin-top:0.3rem; padding:0 0.25rem; }
+  .reaction-btn { background:var(--gray3); border:1px solid var(--gray4); border-radius:100px; padding:0.15rem 0.5rem; font-size:0.75rem; cursor:pointer; transition:all 0.15s; display:flex; align-items:center; gap:0.2rem; color:var(--white); }
+  .reaction-btn:hover { border-color:var(--green); }
+  .reaction-btn.mine { background:rgba(204,255,115,0.15); border-color:var(--green); }
+  .reaction-btn .count { font-size:0.7rem; color:var(--text-muted); }
+  .emoji-picker { position:fixed; background:var(--gray2); border:1px solid var(--gray3); border-radius:12px; padding:0.5rem; display:flex; gap:0.4rem; z-index:500; box-shadow:0 8px 32px rgba(0,0,0,0.5); }
+  .emoji-picker button { background:none; border:none; font-size:1.3rem; cursor:pointer; padding:0.25rem; border-radius:8px; transition:transform 0.1s; }
+  .emoji-picker button:hover { transform:scale(1.3); }
+  /* SESSION WAITING */
+  .waiting-banner { background:rgba(204,255,115,0.08); border:1px solid rgba(204,255,115,0.3); border-radius:12px; padding:1.5rem; margin:1.5rem; text-align:center; }
+  .waiting-banner h3 { font-size:1rem; font-weight:700; color:var(--green); margin-bottom:0.5rem; }
+  .waiting-banner p { font-size:0.85rem; color:var(--text-muted); }
+  .badge.waiting { background:rgba(204,255,115,0.15); color:var(--green); border:1px solid rgba(204,255,115,0.3); }
   ::-webkit-scrollbar { width:4px; }
   ::-webkit-scrollbar-thumb { background:var(--gray3); border-radius:2px; }
 </style>
@@ -141,12 +156,32 @@
     <input class="form-input" id="name-input" placeholder="השם שלך..." style="margin-bottom:1rem;text-align:center;" />
     <div style="margin-bottom:0.75rem;text-align:right;">
       <label class="form-label">תפקיד</label>
-      <select class="form-input" id="role-select" style="cursor:pointer;">
+      <select class="form-input" id="role-select" style="cursor:pointer;" onchange="toggleAdminPass(this.value)">
         <option value="member">משתתף/ת</option>
         <option value="admin">מנהל/ת סשן</option>
       </select>
     </div>
+    <div id="admin-pass-group" style="display:none;margin-bottom:0.75rem;text-align:right;">
+      <label class="form-label">סיסמת מנהל</label>
+      <input class="form-input" id="admin-pass-input" type="password" placeholder="הזן סיסמה..." />
+      <div id="admin-pass-error" style="color:#FF6B6B;font-size:0.75rem;margin-top:0.4rem;display:none;">סיסמה שגויה</div>
+    </div>
     <button class="btn btn-primary btn-full" onclick="enterApp()">כניסה לחדר ✍️</button>
+  </div>
+</div>
+
+<!-- JOIN SESSION MODAL -->
+<div class="modal-overlay" id="join-modal" style="display:none;">
+  <div class="modal">
+    <div style="margin-bottom:1rem;">
+      <span style="font-size:1.6rem;font-weight:900;color:white;">Linkd</span><span style="font-size:1.6rem;font-weight:900;color:#CCFF73;">Up.</span>
+    </div>
+    <h2>כניסה ל<span>סשן פעיל</span></h2>
+    <p>הזן/י את קוד ההזמנה לסשן</p>
+    <input class="form-input" id="join-code-input" placeholder="קוד הזמנה..." style="margin-bottom:0.5rem;text-align:center;letter-spacing:3px;font-weight:700;" />
+    <div id="join-code-error" style="color:#FF6B6B;font-size:0.75rem;margin-bottom:0.75rem;display:none;">קוד שגוי — בדוק/י שוב</div>
+    <button class="btn btn-primary btn-full" onclick="submitJoinCode()">כניסה לסשן ✍️</button>
+    <button class="btn btn-ghost btn-full" onclick="cancelJoin()" style="margin-top:0.5rem;">ביטול</button>
   </div>
 </div>
 
@@ -261,16 +296,56 @@ let presenceRef = null;
 let stageUnsubscribe = null;
 let msgUnsubscribe = null;
 
+const ADMIN_PASSWORD = 'li45as89up';
+let pendingSessionId = null;
+
+window.toggleAdminPass = function(role) {
+  document.getElementById('admin-pass-group').style.display = role === 'admin' ? 'block' : 'none';
+  document.getElementById('admin-pass-error').style.display = 'none';
+};
+
 window.enterApp = function() {
   const name = document.getElementById('name-input').value.trim();
   const role = document.getElementById('role-select').value;
   if (!name) { document.getElementById('name-input').focus(); return; }
+  if (role === 'admin') {
+    const pass = document.getElementById('admin-pass-input').value;
+    if (pass !== ADMIN_PASSWORD) {
+      document.getElementById('admin-pass-error').style.display = 'block';
+      document.getElementById('admin-pass-input').focus();
+      return;
+    }
+  }
   userName = name; userRole = role;
   document.getElementById('name-modal').style.display = 'none';
-  document.getElementById('home-user-name').textContent = name;
+  document.getElementById('home-user-name').textContent = name + (role === 'admin' ? ' 👑' : '');
   if (role === 'admin') document.getElementById('home-admin-actions').style.display = 'block';
   listenSessions();
   showScreen('home');
+};
+
+window.submitJoinCode = function() {
+  const code = document.getElementById('join-code-input').value.trim().toUpperCase();
+  if (!pendingSessionId) return;
+  onValue(ref(db, 'sessions/' + pendingSessionId + '/inviteCode'), snap => {
+    const correct = (snap.val() || '').toUpperCase();
+    if (code === correct) {
+      document.getElementById('join-modal').style.display = 'none';
+      document.getElementById('join-code-input').value = '';
+      document.getElementById('join-code-error').style.display = 'none';
+      doOpenSession(pendingSessionId);
+      pendingSessionId = null;
+    } else {
+      document.getElementById('join-code-error').style.display = 'block';
+    }
+  }, { onlyOnce: true });
+};
+
+window.cancelJoin = function() {
+  document.getElementById('join-modal').style.display = 'none';
+  document.getElementById('join-code-input').value = '';
+  document.getElementById('join-code-error').style.display = 'none';
+  pendingSessionId = null;
 };
 
 window.showScreen = function(name) {
@@ -289,17 +364,23 @@ function listenSessions() {
     const sessions = Object.entries(data)
       .map(([id, s]) => ({ id, ...s }))
       .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-    c.innerHTML = sessions.map(s => `
-      <div class="session-card ${s.status === 'live' ? 'live' : ''}" onclick="openSession('${s.id}')">
+    c.innerHTML = sessions.map(s => {
+      const isWaiting = s.status === 'waiting';
+      const isLive = s.status === 'live';
+      const isPast = s.status === 'past';
+      return `<div class="session-card ${isLive ? 'live' : ''}" ${!isWaiting ? `onclick="openSession('${s.id}')"` : ''}>
         <div class="session-card-info">
           <h3>${s.name}</h3>
           <p>${(s.desc||'').substring(0,60)}${(s.desc||'').length > 60 ? '...' : ''}</p>
         </div>
         <div class="session-card-meta">
-          <span class="badge ${s.status||'past'}">${s.status === 'live' ? '🔴 פעיל' : 'ארכיון'}</span>
+          <span class="badge ${s.status||'past'}">${isLive ? '🔴 פעיל' : isWaiting ? '⏳ ממתין' : 'ארכיון'}</span>
           <span style="font-size:0.7rem;color:var(--text-muted);">${s.date||''}</span>
+          ${isWaiting && userRole === 'admin' ? `<button class="btn btn-primary btn-sm" onclick="startSession('${s.id}');event.stopPropagation()">▶ התחל</button>` : ''}
+          ${isWaiting && userRole !== 'admin' ? `<span style="font-size:0.7rem;color:var(--text-muted);">ממתין למנהל...</span>` : ''}
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   });
 }
 
@@ -308,6 +389,22 @@ window.openSession = function(id) {
     const session = snap.val();
     if (!session) return;
     if (session.status === 'past') { showArchive(id, session); return; }
+    if (session.status === 'waiting' && userRole !== 'admin') return;
+    // Members need invite code to join live sessions
+    if (userRole !== 'admin' && session.inviteCode) {
+      pendingSessionId = id;
+      document.getElementById('join-modal').style.display = 'flex';
+      document.getElementById('join-code-input').focus();
+      return;
+    }
+    doOpenSession(id);
+  }, { onlyOnce: true });
+};
+
+function doOpenSession(id) {
+  onValue(ref(db, 'sessions/' + id), snap => {
+    const session = snap.val();
+    if (!session) return;
 
     currentSessionId = id;
     currentStages = session.stages || [];
@@ -341,14 +438,14 @@ window.openSession = function(id) {
       sorted.forEach(([key, msg]) => {
         if (!renderedMsgKeys.has(key)) {
           renderedMsgKeys.add(key);
-          appendMsgEl(msg);
+          appendMsgEl(msg, key);
         }
       });
     });
 
     showScreen('session');
   }, { onlyOnce: true });
-};
+}
 
 function renderStage(idx, stages) {
   const stage = stages[idx];
@@ -402,18 +499,27 @@ window.changeStage = function(dir) {
   }, { onlyOnce: true });
 };
 
-function appendMsgEl(msg) {
+function appendMsgEl(msg, msgKey) {
   const area = document.getElementById('chat-area');
   const isMe = msg.name === userName;
   const isAdmin = msg.role === 'admin';
   const isSystem = msg.type === 'system';
   const div = document.createElement('div');
   div.className = `chat-message ${isSystem ? 'system' : isMe ? 'me' : 'other'} ${isAdmin && !isSystem ? 'msg-admin' : ''}`;
+  div.dataset.msgKey = msgKey || '';
   if (isSystem) {
     div.innerHTML = `<div class="msg-bubble">${msg.text}</div>`;
   } else {
     div.innerHTML = `<div class="msg-name">${isMe ? 'את/ה' : msg.name}${isAdmin ? ' 👑' : ''}</div>
-      <div class="msg-bubble">${msg.text.replace(/\n/g,'<br>')}</div>`;
+      <div class="msg-bubble" onclick="openEmojiPicker('${msgKey}', this, event)">${msg.text.replace(/\n/g,'<br>')}</div>
+      <div class="msg-reactions-container" id="reactions-${msgKey}"></div>`;
+    // Live reactions listener
+    if (msgKey && currentSessionId) {
+      onValue(ref(db, `sessions/${currentSessionId}/messages/${msgKey}/reactions`), rSnap => {
+        const container = document.getElementById('reactions-' + msgKey);
+        if (container) container.innerHTML = renderReactions(rSnap.val(), msgKey);
+      });
+    }
   }
   area.appendChild(div);
   area.scrollTop = area.scrollHeight;
@@ -473,11 +579,13 @@ window.createSession = function() {
     instruction: r.querySelector('.si-input').value || '',
     minutes: parseInt(r.querySelector('.sm-input').value) || 5,
   }));
+  const inviteCode = Math.random().toString(36).substring(2,7).toUpperCase();
   const newRef = push(ref(db, 'sessions'));
   set(newRef, {
-    name, desc, stages, status: 'live', currentStage: 0,
+    name, desc, stages, status: 'waiting', currentStage: 0,
     date: new Date().toLocaleDateString('he-IL'),
-    createdAt: Date.now(), createdBy: userName
+    createdAt: Date.now(), createdBy: userName,
+    inviteCode
   }).then(() => {
     document.getElementById('stages-builder').innerHTML = '';
     stageRowCount = 0;
@@ -487,7 +595,8 @@ window.createSession = function() {
     addStageRow('אסוציאציות','שלחו מילים/ביטויים שעולים לכם',7);
     addStageRow('הוקים','עד 3 הוקים — כל אחד עד 8 מילים',10);
     addStageRow('סיום','CTA / פאנץ\' / שאלה לסיום',5);
-    openSession(newRef.key);
+    showScreen('home');
+    alert('✅ הסשן נוצר!\n\nקוד הזמנה: ' + inviteCode + '\n\nשלח אותו למשתתפים, ולחץ ▶ התחל כשמוכן.');
   });
 };
 
@@ -523,11 +632,75 @@ function sanitizeKey(str) { return str.replace(/[.#$\[\]\/]/g, '_'); }
 window.handleKey = function(e) { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } };
 window.autoResize = function(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,100)+'px'; };
 
+
+// ===== EMOJI REACTIONS =====
+let emojiTargetMsgKey = null;
+
+window.openEmojiPicker = function(msgKey, el, event) {
+  event.stopPropagation();
+  emojiTargetMsgKey = msgKey;
+  const picker = document.getElementById('emoji-picker');
+  const rect = el.getBoundingClientRect();
+  picker.style.display = 'flex';
+  // Position above the bubble
+  const top = rect.top - picker.offsetHeight - 8;
+  picker.style.top = (top < 8 ? rect.bottom + 8 : top) + 'px';
+  picker.style.right = (window.innerWidth - rect.right) + 'px';
+  picker.style.left = 'auto';
+};
+
+window.pickEmoji = function(emoji) {
+  if (!emojiTargetMsgKey || !currentSessionId) return;
+  document.getElementById('emoji-picker').style.display = 'none';
+  const reactionRef = ref(db, `sessions/${currentSessionId}/messages/${emojiTargetMsgKey}/reactions/${emoji}/${sanitizeKey(userName)}`);
+  onValue(reactionRef, snap => {
+    if (snap.val()) {
+      set(reactionRef, null); // toggle off
+    } else {
+      set(reactionRef, true); // toggle on
+    }
+    emojiTargetMsgKey = null;
+  }, { onlyOnce: true });
+};
+
+document.addEventListener('click', () => {
+  document.getElementById('emoji-picker').style.display = 'none';
+});
+
+function renderReactions(reactions, msgKey) {
+  if (!reactions) return '';
+  const emojis = Object.entries(reactions);
+  if (!emojis.length) return '';
+  return '<div class="msg-reactions">' + emojis.map(([emoji, users]) => {
+    const count = Object.keys(users).length;
+    const mine = users[sanitizeKey(userName)];
+    return `<button class="reaction-btn ${mine ? 'mine' : ''}" onclick="pickEmoji('${emoji}'); emojiTargetMsgKey='${msgKey}';">
+      ${emoji} <span class="count">${count}</span>
+    </button>`;
+  }).join('') + '</div>';
+}
+
+// ===== WAITING STATUS =====
+window.startSession = function(id) {
+  update(ref(db, 'sessions/' + id), { status: 'live' });
+  pushSystemMsg('— הסשן התחיל! ✍️ —');
+};
+
 document.getElementById('name-input').addEventListener('keydown', e => { if (e.key==='Enter') enterApp(); });
 addStageRow('דיון פתוח','קראו את הנושא והגיבו חופשי',5);
 addStageRow('אסוציאציות','שלחו מילים/ביטויים שעולים לכם',7);
 addStageRow('הוקים','עד 3 הוקים — כל אחד עד 8 מילים',10);
 addStageRow('סיום','CTA / פאנץ\' / שאלה לסיום',5);
 </script>
+
+<!-- EMOJI PICKER -->
+<div class="emoji-picker" id="emoji-picker" style="display:none;">
+  <button onclick="pickEmoji('👍')">👍</button>
+  <button onclick="pickEmoji('❤️')">❤️</button>
+  <button onclick="pickEmoji('🔥')">🔥</button>
+  <button onclick="pickEmoji('😂')">😂</button>
+  <button onclick="pickEmoji('💡')">💡</button>
+  <button onclick="pickEmoji('👏')">👏</button>
+</div>
 </body>
 </html>
