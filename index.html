@@ -3,271 +3,704 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Preview — חדר הכתיבה</title>
+<title>LinkdUp — חדר הכתיבה</title>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 <style>
   :root {
-    --green: #CCFF73; --dark-green: #1C5A2D; --black: #000; --white: #fff;
-    --gray2: #1a1a1a; --gray3: #222; --gray4: #333; --gray5: #555; --muted: #888;
+    --green: #CCFF73; --dark-green: #1C5A2D; --black: #000000; --white: #FFFFFF;
+    --gray2: #1a1a1a; --gray3: #222222; --gray4: #333333; --gray5: #555555; --text-muted: #888888;
   }
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:#111; font-family:'Heebo',sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; padding:2rem; direction:rtl; }
+  body { background:var(--black); color:var(--white); font-family:'Heebo',sans-serif; min-height:100vh; direction:rtl; }
+  .logo { font-size:1.4rem; font-weight:900; }
+  .logo .w { color:var(--white); } .logo .g { color:var(--green); }
+  .screen { display:none; min-height:100vh; flex-direction:column; }
+  .screen.active { display:flex; }
 
-  .phone-wrap { position:relative; }
-  .label { font-size:0.7rem; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin-bottom:0.75rem; text-align:center; }
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.9); display:flex; align-items:center; justify-content:center; z-index:1000; padding:1.5rem; }
+  .modal { background:var(--gray2); border:1px solid var(--gray3); border-radius:16px; padding:2rem; width:100%; max-width:340px; text-align:center; }
+  .modal h2 { font-size:1.3rem; font-weight:900; margin-bottom:0.5rem; }
+  .modal h2 span { color:var(--green); }
+  .modal p { color:var(--text-muted); font-size:0.85rem; margin-bottom:1.5rem; }
 
-  .phone {
-    width: 375px;
-    height: 720px;
-    background: var(--black);
-    border-radius: 40px;
-    border: 6px solid #2a2a2a;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 40px 80px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.05);
-    position: relative;
-  }
+  .home-header { display:flex; align-items:center; justify-content:space-between; padding:1.5rem 2rem; border-bottom:1px solid var(--gray3); }
+  .home-hero { padding:3rem 2rem 2rem; border-bottom:1px solid var(--gray3); }
+  .home-hero h1 { font-size:2.8rem; font-weight:900; line-height:1.1; }
+  .home-hero h1 em { color:var(--green); font-style:normal; }
+  .home-hero p { color:var(--text-muted); font-size:1rem; margin-top:0.75rem; }
+  .sessions-list { padding:1.5rem 2rem; flex:1; }
+  .sessions-list h2 { font-size:0.75rem; font-weight:500; letter-spacing:2px; text-transform:uppercase; color:var(--text-muted); margin-bottom:1rem; }
+  .session-card { background:var(--gray2); border:1px solid var(--gray3); border-radius:12px; padding:1.25rem 1.5rem; margin-bottom:0.75rem; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; justify-content:space-between; }
+  .session-card:hover { border-color:var(--green); }
+  .session-card.live { border-color:var(--green); background:rgba(204,255,115,0.05); }
+  .session-card-info h3 { font-size:1rem; font-weight:700; margin-bottom:0.25rem; }
+  .session-card-info p { font-size:0.8rem; color:var(--text-muted); }
+  .session-card-meta { display:flex; flex-direction:column; align-items:flex-end; gap:0.5rem; }
+  .badge { font-size:0.65rem; font-weight:700; letter-spacing:1px; text-transform:uppercase; padding:0.2rem 0.6rem; border-radius:100px; }
+  .badge.live { background:var(--green); color:var(--black); }
+  .badge.past { background:var(--gray3); color:var(--text-muted); }
+  .home-actions { padding:1.5rem 2rem; border-top:1px solid var(--gray3); }
 
-  /* STATUS BAR */
-  .status-bar {
-    background: var(--black);
-    padding: 0.4rem 1.5rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-shrink: 0;
-  }
-  .status-time { font-size: 0.7rem; font-weight: 700; color: var(--white); }
-  .status-icons { display: flex; gap: 0.3rem; align-items: center; }
-  .status-icons span { font-size: 0.6rem; color: var(--white); }
+  .session-header { display:flex; align-items:center; justify-content:space-between; padding:1rem 1.5rem; border-bottom:1px solid var(--gray3); background:var(--black); position:sticky; top:0; z-index:100; }
+  .stage-banner { background:var(--gray2); border-bottom:2px solid var(--green); padding:1rem 1.5rem; }
+  .stage-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem; }
+  .stage-label { font-size:0.65rem; font-weight:700; letter-spacing:2px; text-transform:uppercase; color:var(--green); }
+  .timer-display { font-size:1.8rem; font-weight:900; color:var(--green); font-variant-numeric:tabular-nums; line-height:1; }
+  .timer-display.warning { color:#FF6B6B; }
+  .stage-instruction { font-size:0.95rem; font-weight:500; line-height:1.5; }
+  .stage-progress { display:flex; gap:4px; margin-top:0.75rem; }
+  .stage-dot { height:3px; flex:1; background:var(--gray4); border-radius:2px; transition:background 0.3s; }
+  .stage-dot.done { background:var(--dark-green); } .stage-dot.active { background:var(--green); }
 
-  /* SESSION HEADER */
-  .session-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0.75rem 1.25rem;
-    border-bottom: 1px solid var(--gray3);
-    background: var(--black);
-    flex-shrink: 0;
-  }
-  .back-btn { font-size: 0.75rem; color: var(--muted); }
-  .session-title { font-size: 0.85rem; font-weight: 700; }
-  .presence { display: flex; align-items: center; gap: 0.3rem; font-size: 0.7rem; color: var(--muted); }
-  .dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; animation: pulse 1.5s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .chat-area { flex:1; overflow-y:auto; padding:1rem 1.5rem; display:flex; flex-direction:column; gap:0.5rem; }
+  .chat-message { display:flex; flex-direction:column; max-width:85%; animation:fadeIn 0.2s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(6px);} to{opacity:1;transform:translateY(0);} }
+  .chat-message.me { align-self:flex-start; } .chat-message.other { align-self:flex-end; }
+  .chat-message.system { align-self:center; max-width:100%; }
+  .msg-name { font-size:0.7rem; color:var(--text-muted); margin-bottom:0.2rem; padding:0 0.5rem; }
+  .msg-bubble { padding:0.6rem 0.9rem; border-radius:12px; font-size:0.875rem; line-height:1.5; }
+  .chat-message.me .msg-bubble { background:var(--gray3); border-radius:12px 12px 4px 12px; }
+  .chat-message.other .msg-bubble { background:rgba(204,255,115,0.12); border:1px solid rgba(204,255,115,0.2); border-radius:12px 12px 12px 4px; }
+  .chat-message.system .msg-bubble { background:transparent; border:1px solid var(--gray3); color:var(--text-muted); font-size:0.75rem; text-align:center; border-radius:100px; padding:0.3rem 1rem; }
+  .msg-admin .msg-bubble { background:rgba(28,90,45,0.4); border:1px solid var(--dark-green); }
+  .msg-admin .msg-name { color:var(--green); }
+  .chat-input-area { padding:0.75rem 1rem; border-top:1px solid var(--gray3); background:var(--black); display:flex; gap:0.5rem; align-items:flex-end; }
+  .chat-input { flex:1; background:var(--gray2); border:1px solid var(--gray3); border-radius:12px; padding:0.6rem 1rem; color:var(--white); font-family:'Heebo',sans-serif; font-size:0.9rem; resize:none; outline:none; max-height:100px; direction:rtl; transition:border-color 0.2s; line-height:1.5; }
+  .chat-input:focus { border-color:var(--green); }
+  .chat-input::placeholder { color:var(--gray5); }
+  .send-btn { background:var(--green); color:var(--black); border:none; border-radius:10px; width:40px; height:40px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; flex-shrink:0; }
+  .send-btn:hover { background:#d9ff8a; transform:scale(1.05); }
+  .admin-bar { padding:0.75rem 1.5rem; border-top:1px solid var(--gray3); background:var(--gray2); display:flex; gap:0.5rem; align-items:center; }
+  .stage-counter { font-size:0.75rem; color:var(--text-muted); margin-right:auto; }
+  .participants-count { display:flex; align-items:center; gap:0.4rem; font-size:0.75rem; color:var(--text-muted); }
+  .dot-live { width:7px; height:7px; background:var(--green); border-radius:50%; animation:pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
 
-  /* STAGE BANNER */
-  .stage-banner {
-    background: var(--gray2);
-    border-bottom: 2px solid var(--green);
-    padding: 0.85rem 1.25rem;
-    flex-shrink: 0;
-  }
-  .stage-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; }
-  .stage-lbl { font-size: 0.6rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--green); }
-  .timer { font-size: 1.6rem; font-weight: 900; color: var(--green); font-variant-numeric: tabular-nums; line-height: 1; }
-  .stage-instr { font-size: 0.82rem; font-weight: 500; color: var(--white); line-height: 1.4; }
-  .progress { display: flex; gap: 3px; margin-top: 0.6rem; }
-  .pdot { height: 3px; flex: 1; border-radius: 2px; }
-  .pdot.done { background: var(--dark-green); }
-  .pdot.active { background: var(--green); }
-  .pdot.future { background: var(--gray4); }
+  .archive-header { display:flex; align-items:center; justify-content:space-between; padding:1.25rem 1.5rem; border-bottom:1px solid var(--gray3); position:sticky; top:0; background:var(--black); z-index:10; }
+  .archive-body { padding:1.5rem; flex:1; overflow-y:auto; }
+  .archive-session-info { margin-bottom:1.5rem; }
+  .archive-session-info h2 { font-size:1.4rem; font-weight:900; margin-bottom:0.25rem; }
+  .archive-session-info h2 span { color:var(--green); }
+  .archive-session-info p { color:var(--text-muted); font-size:0.85rem; }
+  .archive-stage { background:var(--gray2); border:1px solid var(--gray3); border-radius:12px; overflow:hidden; margin-bottom:1rem; }
+  .archive-stage-header { padding:0.75rem 1rem; background:var(--gray3); display:flex; align-items:center; justify-content:space-between; }
+  .archive-stage-header h4 { font-size:0.8rem; font-weight:700; color:var(--green); letter-spacing:1px; text-transform:uppercase; }
+  .archive-stage-header span { font-size:0.75rem; color:var(--text-muted); }
+  .archive-messages { padding:1rem; display:flex; flex-direction:column; gap:0.5rem; }
+  .archive-msg { display:flex; gap:0.75rem; align-items:flex-start; }
+  .archive-msg-avatar { width:28px; height:28px; border-radius:50%; background:var(--dark-green); display:flex; align-items:center; justify-content:center; font-size:0.65rem; font-weight:700; color:var(--green); flex-shrink:0; }
+  .archive-msg-name { font-size:0.7rem; font-weight:700; color:var(--green); margin-bottom:0.15rem; }
+  .archive-msg-text { font-size:0.85rem; line-height:1.5; background:var(--gray3); padding:0.5rem 0.75rem; border-radius:8px; }
 
-  /* CHAT */
-  .chat { flex: 1; overflow: hidden; padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 0.4rem; }
+  .new-header { display:flex; align-items:center; justify-content:space-between; padding:1.25rem 1.5rem; border-bottom:1px solid var(--gray3); }
+  .new-body { padding:1.5rem; flex:1; overflow-y:auto; }
+  .form-group { margin-bottom:1.25rem; }
+  .form-label { display:block; font-size:0.75rem; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.5rem; }
+  .form-input,.form-textarea { width:100%; background:var(--gray2); border:1px solid var(--gray3); border-radius:10px; padding:0.75rem 1rem; color:var(--white); font-family:'Heebo',sans-serif; font-size:0.9rem; outline:none; direction:rtl; transition:border-color 0.2s; }
+  .form-input:focus,.form-textarea:focus { border-color:var(--green); }
+  .form-textarea { resize:vertical; min-height:80px; }
+  .stage-row { display:flex; gap:0.5rem; align-items:center; background:var(--gray2); border:1px solid var(--gray3); border-radius:10px; padding:0.6rem 0.75rem; margin-bottom:0.5rem; }
+  .stage-num { font-size:0.7rem; font-weight:700; color:var(--green); width:20px; flex-shrink:0; }
+  .stage-row input { flex:1; background:transparent; border:none; color:var(--white); font-family:'Heebo',sans-serif; font-size:0.85rem; outline:none; direction:rtl; }
+  .stage-row input::placeholder { color:var(--gray5); }
+  .stage-time { display:flex; align-items:center; gap:0.3rem; flex-shrink:0; }
+  .stage-time input { width:36px; background:var(--gray3); border:none; border-radius:6px; padding:0.2rem 0.4rem; color:var(--green); font-family:'Heebo',sans-serif; font-size:0.8rem; font-weight:700; text-align:center; outline:none; direction:ltr; }
+  .stage-time span { font-size:0.7rem; color:var(--text-muted); }
+  .remove-stage { background:none; border:none; color:var(--gray5); cursor:pointer; padding:0.2rem; transition:color 0.2s; }
+  .remove-stage:hover { color:#FF6B6B; }
+  .add-stage-btn { background:transparent; border:1px dashed var(--gray4); border-radius:10px; padding:0.6rem; color:var(--text-muted); font-family:'Heebo',sans-serif; font-size:0.8rem; cursor:pointer; width:100%; transition:all 0.2s; text-align:center; margin-top:0.5rem; }
+  .add-stage-btn:hover { border-color:var(--green); color:var(--green); }
 
-  .msg { display: flex; flex-direction: column; max-width: 82%; }
-  .msg.me { align-self: flex-start; }
-  .msg.other { align-self: flex-end; }
-  .msg.sys { align-self: center; max-width: 100%; }
-  .msg-name { font-size: 0.62rem; color: var(--muted); margin-bottom: 0.15rem; padding: 0 0.4rem; }
-  .msg-name.admin { color: var(--green); }
-  .bubble { padding: 0.5rem 0.75rem; border-radius: 10px; font-size: 0.8rem; line-height: 1.45; }
-  .msg.me .bubble { background: var(--gray3); border-radius: 10px 10px 3px 10px; }
-  .msg.other .bubble { background: rgba(204,255,115,0.1); border: 1px solid rgba(204,255,115,0.18); border-radius: 10px 10px 10px 3px; }
-  .msg.admin-msg .bubble { background: rgba(28,90,45,0.4); border: 1px solid var(--dark-green); }
-  .msg.sys .bubble { background: transparent; border: 1px solid var(--gray3); color: var(--muted); font-size: 0.68rem; text-align: center; border-radius: 100px; padding: 0.2rem 0.8rem; }
-  .reactions { display: flex; gap: 0.2rem; margin-top: 0.2rem; padding: 0 0.2rem; }
-  .rx { background: var(--gray3); border: 1px solid var(--gray4); border-radius: 100px; padding: 0.1rem 0.4rem; font-size: 0.68rem; display: flex; align-items: center; gap: 0.15rem; }
-  .rx.mine { background: rgba(204,255,115,0.12); border-color: var(--green); }
-  .rx span { font-size: 0.62rem; color: var(--muted); }
+  .btn { padding:0.75rem 1.5rem; border-radius:10px; font-family:'Heebo',sans-serif; font-size:0.9rem; font-weight:700; cursor:pointer; border:none; transition:all 0.2s; display:inline-flex; align-items:center; gap:0.5rem; }
+  .btn-primary { background:var(--green); color:var(--black); }
+  .btn-primary:hover { background:#d9ff8a; }
+  .btn-secondary { background:var(--gray2); color:var(--white); border:1px solid var(--gray3); }
+  .btn-secondary:hover { border-color:var(--green); color:var(--green); }
+  .btn-ghost { background:transparent; color:var(--text-muted); padding:0.5rem; }
+  .btn-ghost:hover { color:var(--white); }
+  .btn-full { width:100%; justify-content:center; }
+  .btn-sm { padding:0.5rem 1rem; font-size:0.8rem; }
+  .fw-bold { font-weight:700; }
+  .empty-state { text-align:center; padding:3rem 1rem; color:var(--text-muted); }
+  .empty-state .big { font-size:2rem; margin-bottom:0.5rem; }
+  .connecting { text-align:center; padding:2rem; color:var(--text-muted); font-size:0.85rem; }
+  .connecting span { color:var(--green); }
 
-  /* ADMIN BAR */
-  .admin-bar {
-    padding: 0.6rem 1.25rem;
-    border-top: 1px solid var(--gray3);
-    background: var(--gray2);
-    display: flex; gap: 0.4rem; align-items: center;
-    flex-shrink: 0;
-  }
-  .stage-ctr { font-size: 0.68rem; color: var(--muted); margin-right: auto; }
-  .btn-sm { padding: 0.4rem 0.8rem; border-radius: 8px; font-family:'Heebo',sans-serif; font-size: 0.75rem; font-weight: 700; border: none; cursor: pointer; }
-  .btn-outline { background: var(--gray3); color: var(--white); border: 1px solid var(--gray4); }
-  .btn-green { background: var(--green); color: var(--black); }
-
-  /* INPUT */
-  .input-area {
-    padding: 0.6rem 0.75rem;
-    border-top: 1px solid var(--gray3);
-    background: var(--black);
-    display: flex; gap: 0.4rem; align-items: center;
-    flex-shrink: 0;
-  }
-  .chat-input { flex: 1; background: var(--gray2); border: 1px solid var(--gray3); border-radius: 10px; padding: 0.5rem 0.8rem; color: var(--muted); font-family:'Heebo',sans-serif; font-size: 0.8rem; direction: rtl; }
-  .send { background: var(--green); color: var(--black); border: none; border-radius: 8px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-
-  /* EMOJI PICKER PREVIEW */
-  .emoji-picker-preview {
-    position: absolute;
-    bottom: 140px;
-    right: 60px;
-    background: var(--gray2);
-    border: 1px solid var(--gray3);
-    border-radius: 10px;
-    padding: 0.4rem 0.5rem;
-    display: flex; gap: 0.35rem;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
-    font-size: 1.1rem;
-    z-index: 10;
-    animation: popIn 0.15s ease;
-  }
-  @keyframes popIn { from{opacity:0;transform:scale(0.8)} to{opacity:1;transform:scale(1)} }
-  .emoji-picker-preview span { cursor: pointer; padding: 0.15rem; border-radius: 6px; }
-  .emoji-picker-preview span:hover { background: var(--gray3); }
-
-  /* ANNOTATIONS */
-  .annotations { position: absolute; left: -220px; top: 0; width: 200px; display: flex; flex-direction: column; gap: 1rem; }
-  .ann { background: rgba(204,255,115,0.07); border: 1px solid rgba(204,255,115,0.2); border-radius: 8px; padding: 0.6rem 0.75rem; }
-  .ann-title { font-size: 0.65rem; font-weight: 700; color: var(--green); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 0.2rem; }
-  .ann-text { font-size: 0.72rem; color: var(--muted); line-height: 1.4; }
-  .ann-arrow { font-size: 0.75rem; color: var(--green); margin-top: 0.2rem; }
+  /* EMOJI REACTIONS */
+  .msg-reactions { display:flex; flex-wrap:wrap; gap:0.25rem; margin-top:0.3rem; padding:0 0.25rem; }
+  .reaction-btn { background:var(--gray3); border:1px solid var(--gray4); border-radius:100px; padding:0.15rem 0.5rem; font-size:0.75rem; cursor:pointer; transition:all 0.15s; display:flex; align-items:center; gap:0.2rem; color:var(--white); }
+  .reaction-btn:hover { border-color:var(--green); }
+  .reaction-btn.mine { background:rgba(204,255,115,0.15); border-color:var(--green); }
+  .reaction-btn .count { font-size:0.7rem; color:var(--text-muted); }
+  .emoji-picker { position:fixed; background:var(--gray2); border:1px solid var(--gray3); border-radius:12px; padding:0.5rem; display:flex; gap:0.4rem; z-index:500; box-shadow:0 8px 32px rgba(0,0,0,0.5); }
+  .emoji-picker button { background:none; border:none; font-size:1.3rem; cursor:pointer; padding:0.25rem; border-radius:8px; transition:transform 0.1s; }
+  .emoji-picker button:hover { transform:scale(1.3); }
+  /* SESSION WAITING */
+  .waiting-banner { background:rgba(204,255,115,0.08); border:1px solid rgba(204,255,115,0.3); border-radius:12px; padding:1.5rem; margin:1.5rem; text-align:center; }
+  .waiting-banner h3 { font-size:1rem; font-weight:700; color:var(--green); margin-bottom:0.5rem; }
+  .waiting-banner p { font-size:0.85rem; color:var(--text-muted); }
+  .badge.waiting { background:rgba(204,255,115,0.15); color:var(--green); border:1px solid rgba(204,255,115,0.3); }
+  ::-webkit-scrollbar { width:4px; }
+  ::-webkit-scrollbar-thumb { background:var(--gray3); border-radius:2px; }
 </style>
 </head>
 <body>
 
-<div class="phone-wrap" style="position:relative;">
-  <div class="label">תצוגת סשן — מנהל</div>
-
-  <div class="phone">
-    <!-- STATUS BAR -->
-    <div class="status-bar">
-      <span class="status-time">21:03</span>
-      <div class="status-icons">
-        <span>●●●</span><span>WiFi</span><span>🔋</span>
-      </div>
+<div class="modal-overlay" id="name-modal">
+  <div class="modal">
+    <div style="margin-bottom:1rem;">
+      <span style="font-size:1.6rem;font-weight:900;color:white;">Linkd</span><span style="font-size:1.6rem;font-weight:900;color:#CCFF73;">Up.</span>
     </div>
-
-    <!-- HEADER -->
-    <div class="session-header">
-      <span class="back-btn">← יציאה</span>
-      <span class="session-title">סשן #2 — הוקים</span>
-      <div class="presence"><div class="dot"></div><span>8</span></div>
+    <h2>ברוכ/ה הבא/ה ל<span>חדר הכתיבה</span></h2>
+    <p>איך קוראים לך?</p>
+    <input class="form-input" id="name-input" placeholder="השם שלך..." style="margin-bottom:1rem;text-align:center;" />
+    <div style="margin-bottom:0.75rem;text-align:right;">
+      <label class="form-label">תפקיד</label>
+      <select class="form-input" id="role-select" style="cursor:pointer;" onchange="toggleAdminPass(this.value)">
+        <option value="member">משתתף/ת</option>
+        <option value="admin">מנהל/ת סשן</option>
+      </select>
     </div>
-
-    <!-- STAGE BANNER -->
-    <div class="stage-banner">
-      <div class="stage-top">
-        <span class="stage-lbl">שלב 3 — הוקים</span>
-        <span class="timer">07:42</span>
-      </div>
-      <div class="stage-instr">כתבו עד 3 הוקים — כל אחד עד 8 מילים</div>
-      <div class="progress">
-        <div class="pdot done"></div>
-        <div class="pdot done"></div>
-        <div class="pdot active"></div>
-        <div class="pdot future"></div>
-      </div>
+    <div id="admin-pass-group" style="display:none;margin-bottom:0.75rem;text-align:right;">
+      <label class="form-label">סיסמת מנהל</label>
+      <input class="form-input" id="admin-pass-input" type="password" placeholder="הזן סיסמה..." />
+      <div id="admin-pass-error" style="color:#FF6B6B;font-size:0.75rem;margin-top:0.4rem;display:none;">סיסמה שגויה</div>
     </div>
-
-    <!-- CHAT -->
-    <div class="chat">
-      <div class="msg sys"><div class="bubble">— שלב 3: הוקים —</div></div>
-
-      <div class="msg admin-msg">
-        <div class="msg-name admin">אסף 👑</div>
-        <div class="bubble">מתחילים! עד 3 הוקים, כל אחד עד 8 מילים</div>
-      </div>
-
-      <div class="msg other">
-        <div class="msg-name">מיכל</div>
-        <div class="bubble">״כשכולם זזזים ימינה, תזזי שמאלה״</div>
-        <div class="reactions">
-          <div class="rx mine">🔥 <span>4</span></div>
-          <div class="rx">👍 <span>2</span></div>
-        </div>
-      </div>
-
-      <div class="msg me">
-        <div class="msg-name">את/ה</div>
-        <div class="bubble">״הלינקדאין שלך משעמם — הנה מה לעשות״</div>
-        <div class="reactions">
-          <div class="rx">💡 <span>3</span></div>
-        </div>
-      </div>
-
-      <div class="msg other">
-        <div class="msg-name">יונתן</div>
-        <div class="bubble">״פוסט אחד שינה את הקריירה שלי. הנה איך״</div>
-      </div>
-
-      <div class="msg other">
-        <div class="msg-name">דנה</div>
-        <div class="bubble">״טעיתי בגדול. ולמדתי יותר מהצלחה״</div>
-        <div class="reactions">
-          <div class="rx">❤️ <span>5</span></div>
-          <div class="rx">👏 <span>2</span></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- EMOJI PICKER -->
-    <div class="emoji-picker-preview">
-      <span>👍</span><span>❤️</span><span>🔥</span><span>😂</span><span>💡</span><span>👏</span>
-    </div>
-
-    <!-- ADMIN BAR -->
-    <div class="admin-bar">
-      <span class="stage-ctr">שלב 3 מתוך 4</span>
-      <button class="btn-sm btn-outline">→ קודם</button>
-      <button class="btn-sm btn-green">הבא ←</button>
-    </div>
-
-    <!-- INPUT -->
-    <div class="input-area">
-      <div class="chat-input">כתוב/י כאן...</div>
-      <button class="send">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transform:scaleX(-1)">
-          <line x1="22" y1="2" x2="11" y2="13"></line>
-          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-        </svg>
-      </button>
-    </div>
-  </div>
-
-  <!-- ANNOTATIONS -->
-  <div class="annotations">
-    <div class="ann" style="margin-top:60px;">
-      <div class="ann-title">שם + משתתפים</div>
-      <div class="ann-text">שם הסשן + כמה אנשים מחוברים כרגע</div>
-      <div class="ann-arrow">→</div>
-    </div>
-    <div class="ann" style="margin-top:10px;">
-      <div class="ann-title">באנר שלב</div>
-      <div class="ann-text">שם השלב + טיימר + הנחיה + פס התקדמות</div>
-      <div class="ann-arrow">→</div>
-    </div>
-    <div class="ann" style="margin-top:50px;">
-      <div class="ann-title">תגובות אימוג'י</div>
-      <div class="ann-text">לחיצה על הודעה פותחת את הבר. הספירה בזמן אמת</div>
-      <div class="ann-arrow">→</div>
-    </div>
-    <div class="ann" style="margin-top:80px;">
-      <div class="ann-title">בר מנהל</div>
-      <div class="ann-text">רק אתה רואה את זה — לניווט בין שלבים</div>
-      <div class="ann-arrow">→</div>
-    </div>
+    <button class="btn btn-primary btn-full" onclick="enterApp()">כניסה לחדר ✍️</button>
   </div>
 </div>
 
+<!-- JOIN SESSION MODAL -->
+<div class="modal-overlay" id="join-modal" style="display:none;">
+  <div class="modal">
+    <div style="margin-bottom:1rem;">
+      <span style="font-size:1.6rem;font-weight:900;color:white;">Linkd</span><span style="font-size:1.6rem;font-weight:900;color:#CCFF73;">Up.</span>
+    </div>
+    <h2>כניסה ל<span>סשן פעיל</span></h2>
+    <p>הזן/י את קוד ההזמנה לסשן</p>
+    <input class="form-input" id="join-code-input" placeholder="קוד הזמנה..." style="margin-bottom:0.5rem;text-align:center;letter-spacing:3px;font-weight:700;" />
+    <div id="join-code-error" style="color:#FF6B6B;font-size:0.75rem;margin-bottom:0.75rem;display:none;">קוד שגוי — בדוק/י שוב</div>
+    <button class="btn btn-primary btn-full" onclick="submitJoinCode()">כניסה לסשן ✍️</button>
+    <button class="btn btn-ghost btn-full" onclick="cancelJoin()" style="margin-top:0.5rem;">ביטול</button>
+  </div>
+</div>
+
+<div class="screen" id="screen-home">
+  <div class="home-header">
+    <div class="logo"><span class="w">Linkd</span><span class="g">Up.</span></div>
+    <div style="font-size:0.8rem;color:var(--text-muted);" id="home-user-name"></div>
+  </div>
+  <div class="home-hero">
+    <h1>חדר<br><em>הכתיבה.</em></h1>
+    <p>סשנים של יצירת תוכן לקהילת לינקדאפ</p>
+  </div>
+  <div class="sessions-list">
+    <h2>סשנים</h2>
+    <div id="sessions-container"><div class="connecting">מתחבר ל־<span>Firebase</span>...</div></div>
+  </div>
+  <div class="home-actions" id="home-admin-actions" style="display:none;">
+    <button class="btn btn-primary btn-full" onclick="showScreen('new')">+ סשן חדש</button>
+  </div>
+</div>
+
+<div class="screen" id="screen-new">
+  <div class="new-header">
+    <button class="btn btn-ghost" onclick="showScreen('home')">← חזרה</button>
+    <span class="fw-bold">סשן חדש</span>
+    <div style="width:60px;"></div>
+  </div>
+  <div class="new-body">
+    <div class="form-group">
+      <label class="form-label">שם הסשן</label>
+      <input class="form-input" id="new-session-name" placeholder="למשל: סשן #2 — הוקים ופתיחות" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">נושא / תיאור</label>
+      <textarea class="form-textarea" id="new-session-desc" placeholder="מה נעשה? על מה נכתוב?"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">שלבים</label>
+      <div id="stages-builder"></div>
+      <button class="add-stage-btn" onclick="addStageRow()">+ הוסף שלב</button>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="createSession()" style="margin-top:0.5rem;">צור סשן ✍️</button>
+  </div>
+</div>
+
+<div class="screen" id="screen-session">
+  <div class="session-header">
+    <button class="btn btn-ghost" onclick="leaveSession()" style="font-size:0.8rem;">← יציאה</button>
+    <div class="fw-bold" id="session-title-display" style="font-size:0.9rem;">סשן</div>
+    <div class="participants-count"><div class="dot-live"></div><span id="participants-count">0</span></div>
+  </div>
+  <div class="stage-banner">
+    <div class="stage-top">
+      <span class="stage-label" id="stage-label">ממתין...</span>
+      <span class="timer-display" id="timer-display">--:--</span>
+    </div>
+    <div class="stage-instruction" id="stage-instruction">ממתין להתחלת הסשן...</div>
+    <div class="stage-progress" id="stage-progress"></div>
+  </div>
+  <div class="chat-area" id="chat-area"></div>
+  <div class="admin-bar" id="admin-bar" style="display:none;">
+    <span class="stage-counter" id="stage-counter"></span>
+    <button class="btn btn-secondary btn-sm" id="btn-prev" onclick="changeStage(-1)">→ קודם</button>
+    <button class="btn btn-primary btn-sm" id="btn-next" onclick="changeStage(1)">הבא ←</button>
+  </div>
+  <div class="chat-input-area">
+    <textarea class="chat-input" id="chat-input" placeholder="כתוב/י כאן..." rows="1"
+      onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+    <button class="send-btn" onclick="sendMessage()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transform:scaleX(-1)">
+        <line x1="22" y1="2" x2="11" y2="13"></line>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<div class="screen" id="screen-archive">
+  <div class="archive-header">
+    <button class="btn btn-ghost" onclick="showScreen('home')">← חזרה</button>
+    <span class="fw-bold">ארכיון סשן</span>
+    <div style="width:60px;"></div>
+  </div>
+  <div class="archive-body" id="archive-body"></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getDatabase, ref, push, set, onValue, update, onDisconnect }
+  from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCSIxcIQgBJbhjFY_EznK1EnWot3QCk-lc",
+  authDomain: "linkdup-writing-room.firebaseapp.com",
+  databaseURL: "https://linkdup-writing-room-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "linkdup-writing-room",
+  storageBucket: "linkdup-writing-room.firebasestorage.app",
+  messagingSenderId: "27526842635",
+  appId: "1:27526842635:web:3d6c2d30e1d90f60633a0e"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+let userName = '', userRole = 'member';
+let currentSessionId = null;
+let timerInterval = null;
+let timerSeconds = 0;
+let renderedMsgKeys = new Set();
+let currentStages = [];
+let presenceRef = null;
+let stageUnsubscribe = null;
+let msgUnsubscribe = null;
+
+const ADMIN_PASSWORD = 'li45as89up';
+let pendingSessionId = null;
+
+window.toggleAdminPass = function(role) {
+  document.getElementById('admin-pass-group').style.display = role === 'admin' ? 'block' : 'none';
+  document.getElementById('admin-pass-error').style.display = 'none';
+};
+
+window.enterApp = function() {
+  const name = document.getElementById('name-input').value.trim();
+  const role = document.getElementById('role-select').value;
+  if (!name) { document.getElementById('name-input').focus(); return; }
+  if (role === 'admin') {
+    const pass = document.getElementById('admin-pass-input').value;
+    if (pass !== ADMIN_PASSWORD) {
+      document.getElementById('admin-pass-error').style.display = 'block';
+      document.getElementById('admin-pass-input').focus();
+      return;
+    }
+  }
+  userName = name; userRole = role;
+  document.getElementById('name-modal').style.display = 'none';
+  document.getElementById('home-user-name').textContent = name + (role === 'admin' ? ' 👑' : '');
+  if (role === 'admin') document.getElementById('home-admin-actions').style.display = 'block';
+  listenSessions();
+  showScreen('home');
+};
+
+window.submitJoinCode = function() {
+  const code = document.getElementById('join-code-input').value.trim().toUpperCase();
+  if (!pendingSessionId) return;
+  onValue(ref(db, 'sessions/' + pendingSessionId + '/inviteCode'), snap => {
+    const correct = (snap.val() || '').toUpperCase();
+    if (code === correct) {
+      document.getElementById('join-modal').style.display = 'none';
+      document.getElementById('join-code-input').value = '';
+      document.getElementById('join-code-error').style.display = 'none';
+      doOpenSession(pendingSessionId);
+      pendingSessionId = null;
+    } else {
+      document.getElementById('join-code-error').style.display = 'block';
+    }
+  }, { onlyOnce: true });
+};
+
+window.cancelJoin = function() {
+  document.getElementById('join-modal').style.display = 'none';
+  document.getElementById('join-code-input').value = '';
+  document.getElementById('join-code-error').style.display = 'none';
+  pendingSessionId = null;
+};
+
+window.showScreen = function(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+};
+
+function listenSessions() {
+  onValue(ref(db, 'sessions'), snap => {
+    const c = document.getElementById('sessions-container');
+    const data = snap.val();
+    if (!data) {
+      c.innerHTML = '<div class="empty-state"><div class="big">✍️</div><div>עדיין אין סשנים</div></div>';
+      return;
+    }
+    const sessions = Object.entries(data)
+      .map(([id, s]) => ({ id, ...s }))
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    c.innerHTML = sessions.map(s => {
+      const isWaiting = s.status === 'waiting';
+      const isLive = s.status === 'live';
+      const isPast = s.status === 'past';
+      return `<div class="session-card ${isLive ? 'live' : ''}" ${!isWaiting ? `onclick="openSession('${s.id}')"` : ''}>
+        <div class="session-card-info">
+          <h3>${s.name}</h3>
+          <p>${(s.desc||'').substring(0,60)}${(s.desc||'').length > 60 ? '...' : ''}</p>
+        </div>
+        <div class="session-card-meta">
+          <span class="badge ${s.status||'past'}">${isLive ? '🔴 פעיל' : isWaiting ? '⏳ ממתין' : 'ארכיון'}</span>
+          <span style="font-size:0.7rem;color:var(--text-muted);">${s.date||''}</span>
+          ${isWaiting && userRole === 'admin' ? `<button class="btn btn-primary btn-sm" onclick="startSession('${s.id}');event.stopPropagation()">▶ התחל</button>` : ''}
+          ${isWaiting && userRole !== 'admin' ? `<span style="font-size:0.7rem;color:var(--text-muted);">ממתין למנהל...</span>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  });
+}
+
+window.openSession = function(id) {
+  onValue(ref(db, 'sessions/' + id), snap => {
+    const session = snap.val();
+    if (!session) return;
+    if (session.status === 'past') { showArchive(id, session); return; }
+    if (session.status === 'waiting' && userRole !== 'admin') return;
+    // Members need invite code to join live sessions
+    if (userRole !== 'admin' && session.inviteCode) {
+      pendingSessionId = id;
+      document.getElementById('join-modal').style.display = 'flex';
+      document.getElementById('join-code-input').focus();
+      return;
+    }
+    doOpenSession(id);
+  }, { onlyOnce: true });
+};
+
+function doOpenSession(id) {
+  onValue(ref(db, 'sessions/' + id), snap => {
+    const session = snap.val();
+    if (!session) return;
+
+    currentSessionId = id;
+    currentStages = session.stages || [];
+    renderedMsgKeys = new Set();
+    document.getElementById('chat-area').innerHTML = '';
+    document.getElementById('session-title-display').textContent = session.name;
+    document.getElementById('admin-bar').style.display = userRole === 'admin' ? 'flex' : 'none';
+
+    // Presence
+    presenceRef = ref(db, 'sessions/' + id + '/presence/' + sanitizeKey(userName));
+    set(presenceRef, { name: userName, online: true });
+    onDisconnect(presenceRef).remove();
+
+    // Presence count
+    onValue(ref(db, 'sessions/' + id + '/presence'), pSnap => {
+      document.getElementById('participants-count').textContent = pSnap.val() ? Object.keys(pSnap.val()).length : 0;
+    });
+
+    // Current stage (real-time for all)
+    onValue(ref(db, 'sessions/' + id + '/currentStage'), stSnap => {
+      const idx = stSnap.val() || 0;
+      renderStage(idx, currentStages);
+    });
+
+    // Messages — טען היסטוריה מלאה קודם, ואז הקשב לחדשות
+    onValue(ref(db, 'sessions/' + id + '/messages'), msgsSnap => {
+      const msgs = msgsSnap.val();
+      if (!msgs) return;
+      // מיין לפי timestamp לסדר כרונולוגי
+      const sorted = Object.entries(msgs).sort((a, b) => (a[1].ts || 0) - (b[1].ts || 0));
+      sorted.forEach(([key, msg]) => {
+        if (!renderedMsgKeys.has(key)) {
+          renderedMsgKeys.add(key);
+          appendMsgEl(msg, key);
+        }
+      });
+    });
+
+    showScreen('session');
+  }, { onlyOnce: true });
+}
+
+function renderStage(idx, stages) {
+  const stage = stages[idx];
+  if (!stage) return;
+  document.getElementById('stage-label').textContent = `שלב ${idx + 1} — ${stage.label}`;
+  document.getElementById('stage-instruction').textContent = stage.instruction;
+  document.getElementById('stage-counter').textContent = `שלב ${idx + 1} מתוך ${stages.length}`;
+  document.getElementById('btn-next').textContent = idx >= stages.length - 1 ? 'סיום ✓' : 'הבא ←';
+  document.getElementById('btn-prev').disabled = idx === 0;
+  document.getElementById('stage-progress').innerHTML = stages.map((s, i) =>
+    `<div class="stage-dot ${i < idx ? 'done' : i === idx ? 'active' : ''}"></div>`).join('');
+  startLocalTimer(stage.minutes * 60);
+}
+
+function startLocalTimer(seconds) {
+  clearInterval(timerInterval);
+  timerSeconds = seconds;
+  updateTimerEl();
+  timerInterval = setInterval(() => {
+    timerSeconds--;
+    updateTimerEl();
+    if (timerSeconds <= 0) {
+      clearInterval(timerInterval);
+      if (userRole === 'admin') pushSystemMsg('⏱ הזמן הסתיים');
+    }
+  }, 1000);
+}
+
+function updateTimerEl() {
+  const m = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
+  const s = (timerSeconds % 60).toString().padStart(2, '0');
+  const el = document.getElementById('timer-display');
+  el.textContent = `${m}:${s}`;
+  el.className = 'timer-display' + (timerSeconds <= 60 && timerSeconds > 0 ? ' warning' : '');
+}
+
+window.changeStage = function(dir) {
+  if (!currentSessionId || userRole !== 'admin') return;
+  onValue(ref(db, 'sessions/' + currentSessionId + '/currentStage'), snap => {
+    const current = snap.val() || 0;
+    const next = current + dir;
+    if (next < 0) return;
+    if (next >= currentStages.length) {
+      update(ref(db, 'sessions/' + currentSessionId), { status: 'past' });
+      pushSystemMsg('— הסשן הסתיים. תודה לכולם! 🙌 —');
+      document.getElementById('admin-bar').style.display = 'none';
+      return;
+    }
+    update(ref(db, 'sessions/' + currentSessionId), { currentStage: next });
+    pushSystemMsg(`— שלב ${next + 1}: ${currentStages[next].label} —`);
+  }, { onlyOnce: true });
+};
+
+function appendMsgEl(msg, msgKey) {
+  const area = document.getElementById('chat-area');
+  const isMe = msg.name === userName;
+  const isAdmin = msg.role === 'admin';
+  const isSystem = msg.type === 'system';
+  const div = document.createElement('div');
+  div.className = `chat-message ${isSystem ? 'system' : isMe ? 'me' : 'other'} ${isAdmin && !isSystem ? 'msg-admin' : ''}`;
+  div.dataset.msgKey = msgKey || '';
+  if (isSystem) {
+    div.innerHTML = `<div class="msg-bubble">${msg.text}</div>`;
+  } else {
+    div.innerHTML = `<div class="msg-name">${isMe ? 'את/ה' : msg.name}${isAdmin ? ' 👑' : ''}</div>
+      <div class="msg-bubble" onclick="openEmojiPicker('${msgKey}', this, event)">${msg.text.replace(/\n/g,'<br>')}</div>
+      <div class="msg-reactions-container" id="reactions-${msgKey}"></div>`;
+    // Live reactions listener
+    if (msgKey && currentSessionId) {
+      onValue(ref(db, `sessions/${currentSessionId}/messages/${msgKey}/reactions`), rSnap => {
+        const container = document.getElementById('reactions-' + msgKey);
+        if (container) container.innerHTML = renderReactions(rSnap.val(), msgKey);
+      });
+    }
+  }
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+}
+
+window.sendMessage = function() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text || !currentSessionId) return;
+  push(ref(db, 'sessions/' + currentSessionId + '/messages'), {
+    name: userName, role: userRole, stage: 0, text, ts: Date.now()
+  });
+  input.value = '';
+  input.style.height = 'auto';
+};
+
+function pushSystemMsg(text) {
+  if (!currentSessionId) return;
+  push(ref(db, 'sessions/' + currentSessionId + '/messages'), { type: 'system', text, ts: Date.now() });
+}
+
+window.leaveSession = function() {
+  clearInterval(timerInterval);
+  if (presenceRef) set(presenceRef, null);
+  currentSessionId = null;
+  renderedMsgKeys = new Set();
+  showScreen('home');
+};
+
+let stageRowCount = 0;
+window.addStageRow = function(label='', instruction='', minutes=5) {
+  stageRowCount++;
+  const builder = document.getElementById('stages-builder');
+  const row = document.createElement('div');
+  row.className = 'stage-row';
+  row.innerHTML = `
+    <span class="stage-num">${builder.children.length + 1}</span>
+    <input placeholder="שם השלב" value="${label}" class="sn-input" />
+    <input placeholder="ההנחיה..." value="${instruction}" class="si-input" style="flex:2;" />
+    <div class="stage-time"><input type="number" value="${minutes}" min="1" max="30" class="sm-input" /><span>דק'</span></div>
+    <button class="remove-stage" onclick="this.parentElement.remove();renumberRows()">✕</button>`;
+  builder.appendChild(row);
+};
+
+window.renumberRows = function() {
+  document.querySelectorAll('.stage-row .stage-num').forEach((el, i) => el.textContent = i + 1);
+};
+
+window.createSession = function() {
+  const name = document.getElementById('new-session-name').value.trim();
+  const desc = document.getElementById('new-session-desc').value.trim();
+  if (!name) { document.getElementById('new-session-name').focus(); return; }
+  const rows = document.querySelectorAll('.stage-row');
+  if (!rows.length) { alert('הוסף לפחות שלב אחד'); return; }
+  const stages = Array.from(rows).map(r => ({
+    label: r.querySelector('.sn-input').value || 'שלב',
+    instruction: r.querySelector('.si-input').value || '',
+    minutes: parseInt(r.querySelector('.sm-input').value) || 5,
+  }));
+  const inviteCode = Math.random().toString(36).substring(2,7).toUpperCase();
+  const newRef = push(ref(db, 'sessions'));
+  set(newRef, {
+    name, desc, stages, status: 'waiting', currentStage: 0,
+    date: new Date().toLocaleDateString('he-IL'),
+    createdAt: Date.now(), createdBy: userName,
+    inviteCode
+  }).then(() => {
+    document.getElementById('stages-builder').innerHTML = '';
+    stageRowCount = 0;
+    document.getElementById('new-session-name').value = '';
+    document.getElementById('new-session-desc').value = '';
+    addStageRow('דיון פתוח','קראו את הנושא והגיבו חופשי',5);
+    addStageRow('אסוציאציות','שלחו מילים/ביטויים שעולים לכם',7);
+    addStageRow('הוקים','עד 3 הוקים — כל אחד עד 8 מילים',10);
+    addStageRow('סיום','CTA / פאנץ\' / שאלה לסיום',5);
+    showScreen('home');
+    alert('✅ הסשן נוצר!\n\nקוד הזמנה: ' + inviteCode + '\n\nשלח אותו למשתתפים, ולחץ ▶ התחל כשמוכן.');
+  });
+};
+
+function showArchive(id, session) {
+  onValue(ref(db, 'sessions/' + id + '/messages'), snap => {
+    const msgs = snap.val() ? Object.values(snap.val()).filter(m => !m.type) : [];
+    const byStage = {};
+    msgs.forEach(m => { const k = m.stage !== undefined ? m.stage : 0; if (!byStage[k]) byStage[k] = []; byStage[k].push(m); });
+    document.getElementById('archive-body').innerHTML = `
+      <div class="archive-session-info">
+        <h2><span>${session.name}</span></h2>
+        <p>${session.desc||''}</p>
+        <p style="margin-top:0.5rem;">${session.date||''} · ${msgs.length} הודעות</p>
+      </div>
+      ${(session.stages||[]).map((stage, i) => {
+        const sm = (byStage[i]||[]).sort((a,b)=>(a.ts||0)-(b.ts||0));
+        return `<div class="archive-stage">
+          <div class="archive-stage-header"><h4>שלב ${i+1} — ${stage.label}</h4><span>${sm.length} הודעות · ${stage.minutes} דק'</span></div>
+          <div class="archive-messages">
+            ${sm.length === 0 ? '<div style="color:var(--text-muted);font-size:0.8rem;">אין הודעות</div>' :
+              sm.map(m => `<div class="archive-msg">
+                <div class="archive-msg-avatar">${m.name.charAt(0)}</div>
+                <div><div class="archive-msg-name">${m.name}${m.role==='admin'?' 👑':''}</div>
+                <div class="archive-msg-text">${m.text.replace(/\n/g,'<br>')}</div></div>
+              </div>`).join('')}
+          </div></div>`;
+      }).join('')}`;
+    showScreen('archive');
+  }, { onlyOnce: true });
+}
+
+function sanitizeKey(str) { return str.replace(/[.#$\[\]\/]/g, '_'); }
+window.handleKey = function(e) { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } };
+window.autoResize = function(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,100)+'px'; };
+
+
+// ===== EMOJI REACTIONS =====
+let emojiTargetMsgKey = null;
+
+window.openEmojiPicker = function(msgKey, el, event) {
+  event.stopPropagation();
+  emojiTargetMsgKey = msgKey;
+  const picker = document.getElementById('emoji-picker');
+  const rect = el.getBoundingClientRect();
+  picker.style.display = 'flex';
+  // Position above the bubble
+  const top = rect.top - picker.offsetHeight - 8;
+  picker.style.top = (top < 8 ? rect.bottom + 8 : top) + 'px';
+  picker.style.right = (window.innerWidth - rect.right) + 'px';
+  picker.style.left = 'auto';
+};
+
+window.pickEmoji = function(emoji) {
+  if (!emojiTargetMsgKey || !currentSessionId) return;
+  document.getElementById('emoji-picker').style.display = 'none';
+  const reactionRef = ref(db, `sessions/${currentSessionId}/messages/${emojiTargetMsgKey}/reactions/${emoji}/${sanitizeKey(userName)}`);
+  onValue(reactionRef, snap => {
+    if (snap.val()) {
+      set(reactionRef, null); // toggle off
+    } else {
+      set(reactionRef, true); // toggle on
+    }
+    emojiTargetMsgKey = null;
+  }, { onlyOnce: true });
+};
+
+document.addEventListener('click', () => {
+  document.getElementById('emoji-picker').style.display = 'none';
+});
+
+function renderReactions(reactions, msgKey) {
+  if (!reactions) return '';
+  const emojis = Object.entries(reactions);
+  if (!emojis.length) return '';
+  return '<div class="msg-reactions">' + emojis.map(([emoji, users]) => {
+    const count = Object.keys(users).length;
+    const mine = users[sanitizeKey(userName)];
+    return `<button class="reaction-btn ${mine ? 'mine' : ''}" onclick="pickEmoji('${emoji}'); emojiTargetMsgKey='${msgKey}';">
+      ${emoji} <span class="count">${count}</span>
+    </button>`;
+  }).join('') + '</div>';
+}
+
+// ===== WAITING STATUS =====
+window.startSession = function(id) {
+  update(ref(db, 'sessions/' + id), { status: 'live' });
+  pushSystemMsg('— הסשן התחיל! ✍️ —');
+};
+
+document.getElementById('name-input').addEventListener('keydown', e => { if (e.key==='Enter') enterApp(); });
+addStageRow('דיון פתוח','קראו את הנושא והגיבו חופשי',5);
+addStageRow('אסוציאציות','שלחו מילים/ביטויים שעולים לכם',7);
+addStageRow('הוקים','עד 3 הוקים — כל אחד עד 8 מילים',10);
+addStageRow('סיום','CTA / פאנץ\' / שאלה לסיום',5);
+</script>
+
+<!-- EMOJI PICKER -->
+<div class="emoji-picker" id="emoji-picker" style="display:none;">
+  <button onclick="pickEmoji('👍')">👍</button>
+  <button onclick="pickEmoji('❤️')">❤️</button>
+  <button onclick="pickEmoji('🔥')">🔥</button>
+  <button onclick="pickEmoji('😂')">😂</button>
+  <button onclick="pickEmoji('💡')">💡</button>
+  <button onclick="pickEmoji('👏')">👏</button>
+</div>
 </body>
 </html>
