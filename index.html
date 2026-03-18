@@ -153,7 +153,24 @@
     </div>
     <h2>ברוכ/ה הבא/ה ל<span>חדר הכתיבה</span></h2>
     <p>איך קוראים לך?</p>
-    <input class="form-input" id="name-input" placeholder="השם שלך..." style="margin-bottom:1rem;text-align:center;" />
+    <input class="form-input" id="name-input" placeholder="השם שלך..." style="margin-bottom:1rem;text-align:center;" autocomplete="off" list="names-list" />
+    <datalist id="names-list">
+      <option value="אסף">
+      <option value="מיכל">
+      <option value="יונתן">
+      <option value="דנה">
+      <option value="רון">
+      <option value="שירה">
+      <option value="אבי">
+      <option value="נועה">
+      <option value="תום">
+      <option value="מאיה">
+      <option value="עידו">
+      <option value="ליאור">
+      <option value="גל">
+      <option value="יעל">
+      <option value="אורי">
+    </datalist>
     <div style="margin-bottom:0.75rem;text-align:right;">
       <label class="form-label">תפקיד</label>
       <select class="form-input" id="role-select" style="cursor:pointer;" onchange="toggleAdminPass(this.value)">
@@ -317,11 +334,21 @@ window.enterApp = function() {
     }
   }
   userName = name; userRole = role;
+  localStorage.setItem('ldu_name', name);
+  localStorage.setItem('ldu_role', role);
   document.getElementById('name-modal').style.display = 'none';
   document.getElementById('home-user-name').textContent = name + (role === 'admin' ? ' 👑' : '');
   if (role === 'admin') document.getElementById('home-admin-actions').style.display = 'block';
   listenSessions();
-  showScreen('home');
+  // Return to last session if exists
+  const lastSession = localStorage.getItem('ldu_last_session');
+  if (lastSession) {
+    onValue(ref(db, 'sessions/' + lastSession + '/status'), snap => {
+      if (snap.val() === 'live') openSession(lastSession);
+    }, { onlyOnce: true });
+  } else {
+    showScreen('home');
+  }
 };
 
 window.submitJoinCode = function() {
@@ -443,6 +470,7 @@ function doOpenSession(id) {
       });
     });
 
+    localStorage.setItem('ldu_last_session', id);
     showScreen('session');
   }, { onlyOnce: true });
 }
@@ -546,6 +574,7 @@ window.leaveSession = function() {
   if (presenceRef) set(presenceRef, null);
   currentSessionId = null;
   renderedMsgKeys = new Set();
+  localStorage.removeItem('ldu_last_session');
   showScreen('home');
 };
 
@@ -687,6 +716,33 @@ window.startSession = function(id) {
 };
 
 document.getElementById('name-input').addEventListener('keydown', e => { if (e.key==='Enter') enterApp(); });
+
+// Auto-login from localStorage
+(function() {
+  const savedName = localStorage.getItem('ldu_name');
+  const savedRole = localStorage.getItem('ldu_role');
+  if (savedName) {
+    document.getElementById('name-input').value = savedName;
+    document.getElementById('role-select').value = savedRole || 'member';
+    if (savedRole === 'admin') toggleAdminPass('admin');
+    // Auto-enter only for members (admin needs to re-enter password for security)
+    if (savedRole !== 'admin') {
+      userName = savedName; userRole = 'member';
+      document.getElementById('name-modal').style.display = 'none';
+      document.getElementById('home-user-name').textContent = savedName;
+      listenSessions();
+      const lastSession = localStorage.getItem('ldu_last_session');
+      if (lastSession) {
+        onValue(ref(db, 'sessions/' + lastSession + '/status'), snap => {
+          if (snap.val() === 'live') openSession(lastSession);
+          else showScreen('home');
+        }, { onlyOnce: true });
+      } else {
+        showScreen('home');
+      }
+    }
+  }
+})();
 addStageRow('דיון פתוח','קראו את הנושא והגיבו חופשי',5);
 addStageRow('אסוציאציות','שלחו מילים/ביטויים שעולים לכם',7);
 addStageRow('הוקים','עד 3 הוקים — כל אחד עד 8 מילים',10);
