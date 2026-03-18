@@ -441,7 +441,11 @@ window.openSession = function(id) {
     const session = snap.val();
     if (!session) return;
     if (session.status === 'past') { showArchive(id, session); return; }
-    if (session.status === 'waiting' && userRole !== 'admin') return;
+    // Waiting — nobody enters yet, admin sees waiting screen
+    if (session.status === 'waiting') {
+      if (userRole === 'admin') showWaitingScreen(id, session);
+      return;
+    }
     // Members need invite code to join live sessions
     if (userRole !== 'admin' && session.inviteCode) {
       pendingSessionId = id;
@@ -685,6 +689,30 @@ function showArchive(id, session) {
 }
 
 
+
+window.showWaitingScreen = function(id, session) {
+  document.getElementById('waiting-session-name').textContent = session.name;
+  document.getElementById('waiting-session-desc').textContent = session.desc || '';
+  document.getElementById('waiting-invite-code').textContent = session.inviteCode || '---';
+  document.getElementById('waiting-start-btn').onclick = function() {
+    startSession(id);
+    showScreen('home');
+  };
+  window._waitingSessionId = id;
+  showScreen('waiting');
+};
+
+window.copyWaitingLink = function() {
+  const id = window._waitingSessionId;
+  if (!id) return;
+  onValue(ref(db, 'sessions/' + id + '/inviteCode'), snap => {
+    const code = snap.val() || '';
+    const link = window.location.origin + window.location.pathname + '?session=' + id + '&code=' + code;
+    if (navigator.clipboard) navigator.clipboard.writeText(link);
+    alert('הקישור הועתק!\n\n' + link);
+  }, { onlyOnce: true });
+};
+
 // ===== SESSION MANAGEMENT =====
 window.deleteSession = function(id, name) {
   if (!confirm('למחוק את הסשן "' + name + '"?')) return;
@@ -771,8 +799,15 @@ window.showInviteCode = function() {
   onValue(ref(db, 'sessions/' + currentSessionId + '/inviteCode'), snap => {
     const code = snap.val() || '---';
     const directLink = window.location.origin + window.location.pathname + '?session=' + currentSessionId + '&code=' + code;
-    if (navigator.clipboard) navigator.clipboard.writeText(directLink);
-    alert('קוד הזמנה: ' + code + '\n\nקישור ישיר לסשן:\n' + directLink + '\n\n(הקישור הועתק ללוח)');
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(directLink).then(() => {
+        alert('✅ הקישור הועתק!\n\nקוד: ' + code + '\n\n' + directLink);
+      }).catch(() => {
+        prompt('העתק את הקישור:', directLink);
+      });
+    } else {
+      prompt('העתק את הקישור:', directLink);
+    }
   }, { onlyOnce: true });
 };
 window.handleKey = function(e) { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } };
@@ -890,6 +925,28 @@ addStageRow('סיום','CTA / פאנץ\' / שאלה לסיום',5);
 </script>
 
 
+
+<!-- WAITING SCREEN -->
+<div class="screen" id="screen-waiting">
+  <div class="new-header">
+    <button class="btn btn-ghost" onclick="showScreen('home')">← חזרה</button>
+    <span class="fw-bold">סשן ממתין</span>
+    <div style="width:60px;"></div>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;gap:1.5rem;text-align:center;">
+    <div style="font-size:3rem;">⏳</div>
+    <div>
+      <div style="font-size:1.3rem;font-weight:900;" id="waiting-session-name"></div>
+      <div style="color:var(--text-muted);font-size:0.85rem;margin-top:0.5rem;" id="waiting-session-desc"></div>
+    </div>
+    <div style="background:var(--gray2);border:1px solid var(--gray3);border-radius:12px;padding:1.25rem 2rem;width:100%;max-width:280px;">
+      <div style="font-size:0.65rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.5rem;">קוד הזמנה</div>
+      <div style="font-size:2rem;font-weight:900;color:var(--green);letter-spacing:4px;" id="waiting-invite-code">---</div>
+      <button class="btn btn-secondary btn-sm" style="margin-top:0.75rem;width:100%;" onclick="copyWaitingLink()">📋 העתק קישור לסשן</button>
+    </div>
+    <button class="btn btn-primary" style="width:100%;max-width:280px;font-size:1rem;" id="waiting-start-btn" onclick="">▶ התחל סשן</button>
+  </div>
+</div>
 <!-- EDIT SESSION -->
 <div class="screen" id="screen-edit">
   <div class="new-header">
