@@ -725,21 +725,20 @@ document.getElementById('name-input').addEventListener('keydown', e => { if (e.k
     document.getElementById('name-input').value = savedName;
     document.getElementById('role-select').value = savedRole || 'member';
     if (savedRole === 'admin') toggleAdminPass('admin');
-    // Auto-enter only for members (admin needs to re-enter password for security)
-    if (savedRole !== 'admin') {
-      userName = savedName; userRole = 'member';
-      document.getElementById('name-modal').style.display = 'none';
-      document.getElementById('home-user-name').textContent = savedName;
-      listenSessions();
-      const lastSession = localStorage.getItem('ldu_last_session');
-      if (lastSession) {
-        onValue(ref(db, 'sessions/' + lastSession + '/status'), snap => {
-          if (snap.val() === 'live') openSession(lastSession);
-          else showScreen('home');
-        }, { onlyOnce: true });
-      } else {
-        showScreen('home');
-      }
+    // Auto-enter for everyone
+    userName = savedName; userRole = savedRole || 'member';
+    document.getElementById('name-modal').style.display = 'none';
+    document.getElementById('home-user-name').textContent = savedName + (userName === 'admin' ? ' 👑' : '');
+    if (savedRole === 'admin') document.getElementById('home-admin-actions').style.display = 'block';
+    listenSessions();
+    const lastSession = localStorage.getItem('ldu_last_session');
+    if (lastSession) {
+      onValue(ref(db, 'sessions/' + lastSession + '/status'), snap => {
+        if (snap.val() === 'live') openSession(lastSession);
+        else showScreen('home');
+      }, { onlyOnce: true });
+    } else {
+      showScreen('home');
     }
   }
 })();
