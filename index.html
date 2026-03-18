@@ -236,6 +236,10 @@
       <textarea class="form-textarea" id="new-session-desc" placeholder="מה נעשה? על מה נכתוב?"></textarea>
     </div>
     <div class="form-group">
+      <label class="form-label">קוד הזמנה (אופציונלי)</label>
+      <input class="form-input" id="new-session-code" placeholder="למשל: LINKDUP — ריק = אוטומטי" style="letter-spacing:2px;font-weight:700;" oninput="this.value=this.value.toUpperCase()" />
+    </div>
+    <div class="form-group">
       <label class="form-label">שלבים</label>
       <div id="stages-builder"></div>
       <button class="add-stage-btn" onclick="addStageRow()">+ הוסף שלב</button>
@@ -261,6 +265,7 @@
   <div class="chat-area" id="chat-area"></div>
   <div class="admin-bar" id="admin-bar" style="display:none;">
     <span class="stage-counter" id="stage-counter"></span>
+    <button class="btn btn-ghost btn-sm" onclick="showInviteCode()" title="הצג קוד הזמנה" style="font-size:1rem;padding:0.4rem;">🔑</button>
     <button class="btn btn-secondary btn-sm" id="btn-prev" onclick="changeStage(-1)">→ קודם</button>
     <button class="btn btn-primary btn-sm" id="btn-next" onclick="changeStage(1)">הבא ←</button>
   </div>
@@ -340,11 +345,25 @@ window.enterApp = function() {
   document.getElementById('home-user-name').textContent = name + (role === 'admin' ? ' 👑' : '');
   if (role === 'admin') document.getElementById('home-admin-actions').style.display = 'block';
   listenSessions();
+  // Direct link pending?
+  if (window._pendingUrlSession && window._pendingUrlCode) {
+    onValue(ref(db, 'sessions/' + window._pendingUrlSession + '/inviteCode'), snap => {
+      if ((snap.val() || '').toUpperCase() === window._pendingUrlCode.toUpperCase()) {
+        localStorage.setItem('ldu_last_session', window._pendingUrlSession);
+        doOpenSession(window._pendingUrlSession);
+      } else {
+        showScreen('home');
+      }
+      window._pendingUrlSession = null; window._pendingUrlCode = null;
+    }, { onlyOnce: true });
+    return;
+  }
   // Return to last session if exists
   const lastSession = localStorage.getItem('ldu_last_session');
   if (lastSession) {
     onValue(ref(db, 'sessions/' + lastSession + '/status'), snap => {
       if (snap.val() === 'live') openSession(lastSession);
+      else showScreen('home');
     }, { onlyOnce: true });
   } else {
     showScreen('home');
@@ -608,7 +627,8 @@ window.createSession = function() {
     instruction: r.querySelector('.si-input').value || '',
     minutes: parseInt(r.querySelector('.sm-input').value) || 5,
   }));
-  const inviteCode = Math.random().toString(36).substring(2,7).toUpperCase();
+  const customCode = document.getElementById('new-session-code').value.trim().toUpperCase();
+  const inviteCode = customCode || Math.random().toString(36).substring(2,7).toUpperCase();
   const newRef = push(ref(db, 'sessions'));
   set(newRef, {
     name, desc, stages, status: 'waiting', currentStage: 0,
@@ -620,6 +640,7 @@ window.createSession = function() {
     stageRowCount = 0;
     document.getElementById('new-session-name').value = '';
     document.getElementById('new-session-desc').value = '';
+    document.getElementById('new-session-code').value = '';
     addStageRow('דיון פתוח','קראו את הנושא והגיבו חופשי',5);
     addStageRow('אסוציאציות','שלחו מילים/ביטויים שעולים לכם',7);
     addStageRow('הוקים','עד 3 הוקים — כל אחד עד 8 מילים',10);
@@ -658,6 +679,16 @@ function showArchive(id, session) {
 }
 
 function sanitizeKey(str) { return str.replace(/[.#$\[\]\/]/g, '_'); }
+
+window.showInviteCode = function() {
+  if (!currentSessionId) return;
+  onValue(ref(db, 'sessions/' + currentSessionId + '/inviteCode'), snap => {
+    const code = snap.val() || '---';
+    const directLink = window.location.origin + window.location.pathname + '?session=' + currentSessionId + '&code=' + code;
+    if (navigator.clipboard) navigator.clipboard.writeText(directLink);
+    alert('קוד הזמנה: ' + code + '\n\nקישור ישיר לסשן:\n' + directLink + '\n\n(הקישור הועתק ללוח)');
+  }, { onlyOnce: true });
+};
 window.handleKey = function(e) { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } };
 window.autoResize = function(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,100)+'px'; };
 
@@ -719,27 +750,51 @@ document.getElementById('name-input').addEventListener('keydown', e => { if (e.k
 
 // Auto-login from localStorage
 (function() {
+  const params = new URLSearchParams(window.location.search);
+  const urlSession = params.get('session');
+  const urlCode = params.get('code');
+
   const savedName = localStorage.getItem('ldu_name');
   const savedRole = localStorage.getItem('ldu_role');
+
+  function afterLogin() {
+    listenSessions();
+    if (urlSession && urlCode) {
+      // Direct link — verify code and join
+      onValue(ref(db, 'sessions/' + urlSession + '/inviteCode'), snap => {
+        if ((snap.val() || '').toUpperCase() === urlCode.toUpperCase()) {
+          localStorage.setItem('ldu_last_session', urlSession);
+          doOpenSession(urlSession);
+        } else {
+          showScreen('home');
+        }
+      }, { onlyOnce: true });
+    } else {
+      const lastSession = localStorage.getItem('ldu_last_session');
+      if (lastSession) {
+        onValue(ref(db, 'sessions/' + lastSession + '/status'), snap => {
+          if (snap.val() === 'live') openSession(lastSession);
+          else showScreen('home');
+        }, { onlyOnce: true });
+      } else {
+        showScreen('home');
+      }
+    }
+  }
+
   if (savedName) {
     document.getElementById('name-input').value = savedName;
     document.getElementById('role-select').value = savedRole || 'member';
     if (savedRole === 'admin') toggleAdminPass('admin');
-    // Auto-enter for everyone
     userName = savedName; userRole = savedRole || 'member';
     document.getElementById('name-modal').style.display = 'none';
-    document.getElementById('home-user-name').textContent = savedName + (userName === 'admin' ? ' 👑' : '');
+    document.getElementById('home-user-name').textContent = savedName + (savedRole === 'admin' ? ' 👑' : '');
     if (savedRole === 'admin') document.getElementById('home-admin-actions').style.display = 'block';
-    listenSessions();
-    const lastSession = localStorage.getItem('ldu_last_session');
-    if (lastSession) {
-      onValue(ref(db, 'sessions/' + lastSession + '/status'), snap => {
-        if (snap.val() === 'live') openSession(lastSession);
-        else showScreen('home');
-      }, { onlyOnce: true });
-    } else {
-      showScreen('home');
-    }
+    afterLogin();
+  } else if (urlSession && urlCode) {
+    // New user with direct link — show name modal then auto-join
+    window._pendingUrlSession = urlSession;
+    window._pendingUrlCode = urlCode;
   }
 })();
 addStageRow('דיון פתוח','קראו את הנושא והגיבו חופשי',5);
