@@ -414,16 +414,22 @@ function listenSessions() {
       const isWaiting = s.status === 'waiting';
       const isLive = s.status === 'live';
       const isPast = s.status === 'past';
-      return `<div class="session-card ${isLive ? 'live' : ''}" ${!isWaiting ? `onclick="openSession('${s.id}')"` : ''}>
-        <div class="session-card-info">
+      const clickable = !isWaiting || userRole === 'admin';
+      return `<div class="session-card ${isLive ? 'live' : ''}" ${(isLive || isPast) ? `onclick="openSession('${s.id}')"` : ''} style="gap:0.5rem;">
+        <div class="session-card-info" style="flex:1;min-width:0;">
           <h3>${s.name}</h3>
-          <p>${(s.desc||'').substring(0,60)}${(s.desc||'').length > 60 ? '...' : ''}</p>
+          <p>${(s.desc||'').substring(0,50)}${(s.desc||'').length > 50 ? '...' : ''}</p>
         </div>
         <div class="session-card-meta">
           <span class="badge ${s.status||'past'}">${isLive ? '🔴 פעיל' : isWaiting ? '⏳ ממתין' : 'ארכיון'}</span>
           <span style="font-size:0.7rem;color:var(--text-muted);">${s.date||''}</span>
           ${isWaiting && userRole === 'admin' ? `<button class="btn btn-primary btn-sm" onclick="startSession('${s.id}');event.stopPropagation()">▶ התחל</button>` : ''}
           ${isWaiting && userRole !== 'admin' ? `<span style="font-size:0.7rem;color:var(--text-muted);">ממתין למנהל...</span>` : ''}
+          ${userRole === 'admin' ? `<div style="display:flex;gap:0.3rem;margin-top:0.25rem;">
+            <button class="btn btn-ghost btn-sm" style="padding:0.2rem 0.4rem;font-size:0.75rem;" onclick="editSession('${s.id}');event.stopPropagation()" title="עריכה">✏️</button>
+            <button class="btn btn-ghost btn-sm" style="padding:0.2rem 0.4rem;font-size:0.75rem;" onclick="duplicateSession('${s.id}');event.stopPropagation()" title="שכפול">📋</button>
+            <button class="btn btn-ghost btn-sm" style="padding:0.2rem 0.4rem;font-size:0.75rem;color:#FF6B6B;" onclick="deleteSession('${s.id}','${s.name}');event.stopPropagation()" title="מחיקה">🗑</button>
+          </div>` : ''}
         </div>
       </div>`;
     }).join('');
@@ -678,6 +684,86 @@ function showArchive(id, session) {
   }, { onlyOnce: true });
 }
 
+
+// ===== SESSION MANAGEMENT =====
+window.deleteSession = function(id, name) {
+  if (!confirm('למחוק את הסשן "' + name + '"?')) return;
+  set(ref(db, 'sessions/' + id), null);
+};
+
+window.duplicateSession = function(id) {
+  onValue(ref(db, 'sessions/' + id), snap => {
+    const s = snap.val();
+    if (!s) return;
+    const inviteCode = Math.random().toString(36).substring(2,7).toUpperCase();
+    const newRef = push(ref(db, 'sessions'));
+    set(newRef, {
+      name: s.name + ' (עותק)',
+      desc: s.desc || '',
+      stages: s.stages || [],
+      status: 'waiting',
+      currentStage: 0,
+      date: new Date().toLocaleDateString('he-IL'),
+      createdAt: Date.now(),
+      createdBy: userName,
+      inviteCode
+    }).then(() => {
+      alert('שוכפל! קוד ההזמנה החדש: ' + inviteCode);
+    });
+  }, { onlyOnce: true });
+};
+
+window.editSession = function(id) {
+  onValue(ref(db, 'sessions/' + id), snap => {
+    const s = snap.val();
+    if (!s) return;
+    document.getElementById('edit-session-id').value = id;
+    document.getElementById('edit-session-name').value = s.name || '';
+    document.getElementById('edit-session-desc').value = s.desc || '';
+    document.getElementById('edit-session-code').value = s.inviteCode || '';
+    // Build stages
+    const builder = document.getElementById('edit-stages-builder');
+    builder.innerHTML = '';
+    (s.stages || []).forEach(st => addEditStageRow(st.label, st.instruction, st.minutes));
+    showScreen('edit');
+  }, { onlyOnce: true });
+};
+
+window.addEditStageRow = function(label='', instruction='', minutes=5) {
+  const builder = document.getElementById('edit-stages-builder');
+  const row = document.createElement('div');
+  row.className = 'stage-row';
+  row.innerHTML = `
+    <span class="stage-num">${builder.children.length + 1}</span>
+    <input placeholder="שם השלב" value="${label}" class="sn-input" />
+    <input placeholder="ההנחיה..." value="${instruction}" class="si-input" style="flex:2;" />
+    <div class="stage-time"><input type="number" value="${minutes}" min="1" max="30" class="sm-input" /><span>דק'</span></div>
+    <button class="remove-stage" onclick="this.parentElement.remove();renumberEditRows()">✕</button>`;
+  builder.appendChild(row);
+};
+
+window.renumberEditRows = function() {
+  document.querySelectorAll('#edit-stages-builder .stage-num').forEach((el, i) => el.textContent = i + 1);
+};
+
+window.saveEditSession = function() {
+  const id = document.getElementById('edit-session-id').value;
+  const name = document.getElementById('edit-session-name').value.trim();
+  const desc = document.getElementById('edit-session-desc').value.trim();
+  const code = document.getElementById('edit-session-code').value.trim().toUpperCase();
+  if (!name) { document.getElementById('edit-session-name').focus(); return; }
+  const rows = document.querySelectorAll('#edit-stages-builder .stage-row');
+  const stages = Array.from(rows).map(r => ({
+    label: r.querySelector('.sn-input').value || 'שלב',
+    instruction: r.querySelector('.si-input').value || '',
+    minutes: parseInt(r.querySelector('.sm-input').value) || 5,
+  }));
+  const inviteCode = code || Math.random().toString(36).substring(2,7).toUpperCase();
+  update(ref(db, 'sessions/' + id), { name, desc, stages, inviteCode }).then(() => {
+    showScreen('home');
+  });
+};
+
 function sanitizeKey(str) { return str.replace(/[.#$\[\]\/]/g, '_'); }
 
 window.showInviteCode = function() {
@@ -803,6 +889,36 @@ addStageRow('הוקים','עד 3 הוקים — כל אחד עד 8 מילים',1
 addStageRow('סיום','CTA / פאנץ\' / שאלה לסיום',5);
 </script>
 
+
+<!-- EDIT SESSION -->
+<div class="screen" id="screen-edit">
+  <div class="new-header">
+    <button class="btn btn-ghost" onclick="showScreen('home')">← חזרה</button>
+    <span class="fw-bold">עריכת סשן</span>
+    <div style="width:60px;"></div>
+  </div>
+  <div class="new-body">
+    <input type="hidden" id="edit-session-id" />
+    <div class="form-group">
+      <label class="form-label">שם הסשן</label>
+      <input class="form-input" id="edit-session-name" placeholder="שם הסשן..." />
+    </div>
+    <div class="form-group">
+      <label class="form-label">נושא / תיאור</label>
+      <textarea class="form-textarea" id="edit-session-desc" placeholder="מה נעשה?"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">קוד הזמנה</label>
+      <input class="form-input" id="edit-session-code" placeholder="קוד הזמנה..." style="letter-spacing:2px;font-weight:700;" oninput="this.value=this.value.toUpperCase()" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">שלבים</label>
+      <div id="edit-stages-builder"></div>
+      <button class="add-stage-btn" onclick="addEditStageRow()">+ הוסף שלב</button>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="saveEditSession()" style="margin-top:0.5rem;">שמור שינויים ✓</button>
+  </div>
+</div>
 <!-- EMOJI PICKER -->
 <div class="emoji-picker" id="emoji-picker" style="display:none;">
   <button onclick="pickEmoji('👍')">👍</button>
